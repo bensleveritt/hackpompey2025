@@ -1,27 +1,28 @@
 <script lang="ts">
-  import maplibregl, { type Map as MapInstance, type GeoJSONSource } from 'maplibre-gl';
-  import 'maplibre-gl/dist/maplibre-gl.css';
+	import maplibregl, { type Map as MapInstance, type GeoJSONSource } from 'maplibre-gl';
+	import 'maplibre-gl/dist/maplibre-gl.css';
+  import boatIcon from '$lib/assets/boat-icon.svg';
 
-  // Props
-  const {
-    height = '400px',
-    width = '100%',
-    initialCenter = [-1.0678, 50.7979] as [number, number],
-    initialZoom = 13,
-    theme = 'light'
-  } = $props<{
-    height?: string;
-    width?: string;
-    initialCenter?: [number, number];
-    initialZoom?: number;
-    theme?: 'light' | 'dark';
-  }>();
+	// Props
+	const {
+		height = '400px',
+		width = '100%',
+		initialCenter = [-1.0678, 50.7979] as [number, number],
+		initialZoom = 13,
+		theme = 'light'
+	} = $props<{
+		height?: string;
+		width?: string;
+		initialCenter?: [number, number];
+		initialZoom?: number;
+		theme?: 'light' | 'dark';
+	}>();
 
-  // Environment variables
-  const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY;
+	// Environment variables
+	const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY;
 
-  // Map style based on theme
-  const mapStyle = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`;
+	// Map style based on theme
+	const mapStyle = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`;
 
   // State
   let mapContainer: HTMLDivElement;
@@ -30,324 +31,430 @@
   let trafficVisible = true;
   let airQualityVisible = true;
   let routeVisible = true;
+	let boatVisible = true;
 
-  // Methods for data visualization
-  const getColorForCount = (count: number): string => {
-    if (count > 100000) return '#d73027';
-    if (count > 1000) return '#fc8d59';
-    if (count > 0) return '#fee08b';
-    return '#d9d9d9';
-  };
+	// Methods for data visualization
+	const getColorForCount = (count: number): string => {
+		if (count > 100000) return '#d73027';
+		if (count > 1000) return '#fc8d59';
+		if (count > 0) return '#fee08b';
+		return '#d9d9d9';
+	};
 
-  const getWidthForCount = (count: number): number => {
-    if (count > 100000) return 6;
-    if (count > 1000) return 4;
-    if (count > 0) return 2;
-    return 1;
-  };
+	const getWidthForCount = (count: number): number => {
+		if (count > 100000) return 6;
+		if (count > 1000) return 4;
+		if (count > 0) return 2;
+		return 1;
+	};
 
-  const styleTrafficGeoJSON = (geojson: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection => {
-    return {
-      ...geojson,
-      features: geojson.features
-        .filter(f => f.geometry?.type === 'LineString' && f.properties?.segmentProbeCounts?.[0]?.probeCount >= 0)
-        .map(f => {
-          const count = f.properties?.segmentProbeCounts[0].probeCount;
-          return {
-            ...f,
-            properties: {
-              ...f.properties,
-              probeCount: count,
-              color: getColorForCount(count),
-              width: getWidthForCount(count)
-            }
-          };
-        })
-    };
-  };
+	const styleTrafficGeoJSON = (geojson: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection => {
+		return {
+			...geojson,
+			features: geojson.features
+				.filter(
+					(f) =>
+						f.geometry?.type === 'LineString' &&
+						f.properties?.segmentProbeCounts?.[0]?.probeCount >= 0
+				)
+				.map((f) => {
+					const count = f.properties?.segmentProbeCounts[0].probeCount;
+					return {
+						...f,
+						properties: {
+							...f.properties,
+							probeCount: count,
+							color: getColorForCount(count),
+							width: getWidthForCount(count)
+						}
+					};
+				})
+		};
+	};
 
-  const addDataLayer = (geojsonData: GeoJSON.FeatureCollection) => {
-    if (!map) return;
+	const addDataLayer = (geojsonData: GeoJSON.FeatureCollection) => {
+		if (!map) return;
 
-    if (map.getSource('visualization-data')) {
-      map.removeLayer('visualization-layer');
-      map.removeSource('visualization-data');
-    }
+		if (map.getSource('visualization-data')) {
+			map.removeLayer('visualization-layer');
+			map.removeSource('visualization-data');
+		}
 
-    map.addSource('visualization-data', {
-      type: 'geojson',
-      data: geojsonData
-    });
+		map.addSource('visualization-data', {
+			type: 'geojson',
+			data: geojsonData
+		});
 
-    dataSource = map.getSource('visualization-data') as GeoJSONSource;
+		dataSource = map.getSource('visualization-data') as GeoJSONSource;
 
-    map.addLayer({
-      id: 'visualization-layer',
-      type: 'line',
-      source: 'visualization-data',
-      paint: {
-        'line-color': ['get', 'color'],
-        'line-width': ['get', 'width'],
-        'line-opacity': 0.8
-      },
-      layout: {
-        visibility: trafficVisible ? 'visible' : 'none'
-      }
-    });
-  };
+		map.addLayer({
+			id: 'visualization-layer',
+			type: 'line',
+			source: 'visualization-data',
+			paint: {
+				'line-color': ['get', 'color'],
+				'line-width': ['get', 'width'],
+				'line-opacity': 0.8
+			},
+			layout: {
+				visibility: trafficVisible ? 'visible' : 'none'
+			}
+		});
+	};
 
-  const toggleTrafficLayer = () => {
-    if (!map?.getLayer('visualization-layer')) return;
-    trafficVisible = !trafficVisible;
-    map.setLayoutProperty('visualization-layer', 'visibility', trafficVisible ? 'visible' : 'none');
-  };
+	const toggleTrafficLayer = () => {
+		if (!map?.getLayer('visualization-layer')) return;
+		trafficVisible = !trafficVisible;
+		map.setLayoutProperty('visualization-layer', 'visibility', trafficVisible ? 'visible' : 'none');
+	};
 
-  const toggleAirQualityLayer = () => {
-    if (!map?.getLayer('air-quality-layer')) return;
-    airQualityVisible = !airQualityVisible;
-    map.setLayoutProperty('air-quality-layer', 'visibility', airQualityVisible ? 'visible' : 'none');
-  };
+	const toggleAirQualityLayer = () => {
+		if (!map?.getLayer('air-quality-layer')) return;
+		airQualityVisible = !airQualityVisible;
+		map.setLayoutProperty(
+			'air-quality-layer',
+			'visibility',
+			airQualityVisible ? 'visible' : 'none'
+		);
+	};
 
-  // Custom map control for toggling layers
-  class ToggleButtonControl {
-    private _map!: MapInstance;
-    private _btn!: HTMLButtonElement;
-    private _icon: string;
-    private _title: string;
-    private _toggleFn: () => void;
+	// Custom map control for toggling layers
+	class ToggleButtonControl {
+		private _map!: MapInstance;
+		private _btn!: HTMLButtonElement;
+		private _icon: string;
+		private _title: string;
+		private _toggleFn: () => void;
 
-    constructor(icon: string, title: string, toggleFn: () => void) {
-      this._icon = icon;
-      this._title = title;
-      this._toggleFn = toggleFn;
-    }
+		constructor(icon: string, title: string, toggleFn: () => void) {
+			this._icon = icon;
+			this._title = title;
+			this._toggleFn = toggleFn;
+		}
 
-    onAdd(map: MapInstance): HTMLElement {
-      this._map = map;
-      this._btn = document.createElement('button');
-      this._btn.className = 'maplibregl-ctrl-icon';
-      this._btn.type = 'button';
-      this._btn.textContent = this._icon;
-      this._btn.title = this._title;
-      this._btn.onclick = () => this._toggleFn();
+		onAdd(map: MapInstance): HTMLElement {
+			this._map = map;
+			this._btn = document.createElement('button');
+			this._btn.className = 'maplibregl-ctrl-icon';
+			this._btn.type = 'button';
+			this._btn.textContent = this._icon;
+			this._btn.title = this._title;
+			this._btn.onclick = () => this._toggleFn();
 
-      const container = document.createElement('div');
-      container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
-      container.appendChild(this._btn);
-      return container;
-    }
+			const container = document.createElement('div');
+			container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+			container.appendChild(this._btn);
+			return container;
+		}
 
-    onRemove(): void {
-      this._btn?.parentNode?.removeChild(this._btn);
-    }
-  }
+		onRemove(): void {
+			this._btn?.parentNode?.removeChild(this._btn);
+		}
+	}
 
-  // Air quality mock data
-  type AirQualityStatus = 'good' | 'moderate' | 'poor';
+	// Air quality mock data
+	type AirQualityStatus = 'good' | 'moderate' | 'poor';
 
-  const mockAirQualityData: GeoJSON.FeatureCollection = {
-    type: 'FeatureCollection',
-    features: [
-      {
-        type: 'Feature',
-        properties: { status: 'good' as AirQualityStatus, name: 'Southsea Common' },
-        geometry: { type: 'Point', coordinates: [-1.091, 50.782] }
-      },
-      {
-        type: 'Feature',
-        properties: { status: 'poor' as AirQualityStatus, name: 'Commercial Road' },
-        geometry: { type: 'Point', coordinates: [-1.087, 50.800] }
-      },
-      {
-        type: 'Feature',
-        properties: { status: 'moderate' as AirQualityStatus, name: 'Eastern Road' },
-        geometry: { type: 'Point', coordinates: [-1.054, 50.825] }
-      },
-      {
-        type: 'Feature',
-        properties: { status: 'poor' as AirQualityStatus, name: 'Cosham High Street' },
-        geometry: { type: 'Point', coordinates: [-1.067, 50.841] }
-      },
-      {
-        type: 'Feature',
-        properties: { status: 'poor', name: 'M275 Northern End (near Tipner)' },
-        geometry: { type: 'Point', coordinates: [-1.0915, 50.8286] }
-      },
-      {
-        type: 'Feature',
-        properties: { status: 'poor', name: 'M275 South (near Rudmore Roundabout)' },
-        geometry: { type: 'Point', coordinates: [-1.0849, 50.8134] }
-      },
-      {
-        type: 'Feature',
-        properties: { status: 'moderate', name: 'Fratton Bridge' },
-        geometry: { type: 'Point', coordinates: [-1.0723, 50.7945] }
-      },
-      {
-        type: 'Feature',
-        properties: { status: 'moderate', name: 'North End (London Road)' },
-        geometry: { type: 'Point', coordinates: [-1.0779, 50.8149] }
-      },
-      {
-        type: 'Feature',
-        properties: { status: 'good', name: 'Milton Park' },
-        geometry: { type: 'Point', coordinates: [-1.0630, 50.7910] }
-      },
-      {
-        type: 'Feature',
-        properties: { status: 'good', name: 'Hilsea Lines Nature Reserve' },
-        geometry: { type: 'Point', coordinates: [-1.0731, 50.8281] }
-      },
-    ]
-  };
+	const mockAirQualityData: GeoJSON.FeatureCollection = {
+		type: 'FeatureCollection',
+		features: [
+			{
+				type: 'Feature',
+				properties: { status: 'good' as AirQualityStatus, name: 'Southsea Common' },
+				geometry: { type: 'Point', coordinates: [-1.091, 50.782] }
+			},
+			{
+				type: 'Feature',
+				properties: { status: 'poor' as AirQualityStatus, name: 'Commercial Road' },
+				geometry: { type: 'Point', coordinates: [-1.087, 50.8] }
+			},
+			{
+				type: 'Feature',
+				properties: { status: 'moderate' as AirQualityStatus, name: 'Eastern Road' },
+				geometry: { type: 'Point', coordinates: [-1.054, 50.825] }
+			},
+			{
+				type: 'Feature',
+				properties: { status: 'poor' as AirQualityStatus, name: 'Cosham High Street' },
+				geometry: { type: 'Point', coordinates: [-1.067, 50.841] }
+			},
+			{
+				type: 'Feature',
+				properties: { status: 'poor', name: 'M275 Northern End (near Tipner)' },
+				geometry: { type: 'Point', coordinates: [-1.0915, 50.8286] }
+			},
+			{
+				type: 'Feature',
+				properties: { status: 'poor', name: 'M275 South (near Rudmore Roundabout)' },
+				geometry: { type: 'Point', coordinates: [-1.0849, 50.8134] }
+			},
+			{
+				type: 'Feature',
+				properties: { status: 'moderate', name: 'Fratton Bridge' },
+				geometry: { type: 'Point', coordinates: [-1.0723, 50.7945] }
+			},
+			{
+				type: 'Feature',
+				properties: { status: 'moderate', name: 'North End (London Road)' },
+				geometry: { type: 'Point', coordinates: [-1.0779, 50.8149] }
+			},
+			{
+				type: 'Feature',
+				properties: { status: 'good', name: 'Milton Park' },
+				geometry: { type: 'Point', coordinates: [-1.063, 50.791] }
+			},
+			{
+				type: 'Feature',
+				properties: { status: 'good', name: 'Hilsea Lines Nature Reserve' },
+				geometry: { type: 'Point', coordinates: [-1.0731, 50.8281] }
+			}
+		]
+	};
 
-  const addAirQualityLayer = () => {
-    if (!map) return;
+	const mockBoatData: GeoJSON.FeatureCollection = {
+		type: 'FeatureCollection',
+		features: [
+			{
+				type: 'Feature',
+				properties: {
+					orientation: 45  // Heading northeast
+				},
+				geometry: {
+					coordinates: [-1.1046954744105904, 50.78089568162707],
+					type: 'Point'
+				}
+			},
+			{
+				type: 'Feature',
+				properties: {
+					orientation: 180  // Heading south
+				},
+				geometry: {
+					coordinates: [-1.1128571003072807, 50.8043329453744],
+					type: 'Point'
+				}
+			},
+			{
+				type: 'Feature',
+				properties: {
+					orientation: 270  // Heading west
+				},
+				geometry: {
+					coordinates: [-1.0949586313444968, 50.81135748920212],
+					type: 'Point'
+				}
+			}
+		]
+	};
 
-    if (map.getSource('air-quality')) {
-      map.removeLayer('air-quality-layer');
-      map.removeSource('air-quality');
-    }
+	const addBoatLayer = () => {
+		if (!map) return;
 
-    map.addSource('air-quality', {
-      type: 'geojson',
-      data: mockAirQualityData
-    });
+		map.addSource('boat-data', {
+			type: 'geojson',
+			data: mockBoatData
+		});
 
-    map.addLayer({
-      id: 'air-quality-layer',
-      type: 'circle',
-      source: 'air-quality',
-      paint: {
-        'circle-radius': 20,
-        'circle-color': [
-          'match',
-          ['get', 'status'],
-          'good', '#2ECC71',
-          'moderate', '#F1C40F',
-          'poor', '#E74C3C',
-          '#bdc3c7'
-        ],
-        'circle-stroke-color': '#333',
-        'circle-stroke-width': 1.5,
-        'circle-opacity': 0.85
-      },
-      layout: {
-        visibility: airQualityVisible ? 'visible' : 'none'
-      }
-    });
-  };
+		map.addLayer({
+			id: 'boat-layer',
+			type: 'symbol',
+			source: 'boat-data',
+			layout: {
+				'icon-image': 'boat-icon',
+				'icon-size': 1,
+				'icon-allow-overlap': true,
+				'icon-ignore-placement': true,
+				'icon-rotate': ['get', 'orientation'],
+				'icon-rotation-alignment': 'map'
+			}
+		});
+	};
 
-  $effect(() => {
-    if (mapContainer && !map) {
-      map = new maplibregl.Map({
-        container: mapContainer,
-        style: mapStyle,
-        center: initialCenter,
-        zoom: initialZoom
-      });
+	const toggleBoatLayer = () => {
+		if (!map?.getLayer('boat-layer')) return;
+		boatVisible = !boatVisible;
+		map.setLayoutProperty('boat-layer', 'visibility', boatVisible ? 'visible' : 'none');
+	};
 
-      map.addControl(new maplibregl.NavigationControl(), 'top-right');
-      map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
+	const addAirQualityLayer = () => {
+		if (!map) return;
 
-      map.on('load', async () => {
-        const res = await fetch('/data/portsmouth-traffic.geojson');
-        const rawData: GeoJSON.FeatureCollection = await res.json();
-        const styledGeoJSON = styleTrafficGeoJSON(rawData);
-        addDataLayer(styledGeoJSON);
-        addAirQualityLayer();
+		if (map.getSource('air-quality')) {
+			map.removeLayer('air-quality-layer');
+			map.removeSource('air-quality');
+		}
 
-        map?.addControl(new ToggleButtonControl('🚦', 'Toggle traffic layer', toggleTrafficLayer), 'top-right');
-        map?.addControl(new ToggleButtonControl('🟢', 'Toggle air quality layer', toggleAirQualityLayer), 'top-right');
+		map.addSource('air-quality', {
+			type: 'geojson',
+			data: mockAirQualityData
+		});
 
-        fetchSnappedRoute();
-      });
+		map.addLayer({
+			id: 'air-quality-layer',
+			type: 'circle',
+			source: 'air-quality',
+			paint: {
+				'circle-radius': 20,
+				'circle-color': [
+					'match',
+					['get', 'status'],
+					'good',
+					'#2ECC71',
+					'moderate',
+					'#F1C40F',
+					'poor',
+					'#E74C3C',
+					'#bdc3c7'
+				],
+				'circle-stroke-color': '#333',
+				'circle-stroke-width': 1.5,
+				'circle-opacity': 0.85
+			},
+			layout: {
+				visibility: airQualityVisible ? 'visible' : 'none'
+			}
+		});
+	};
 
-      return () => {
-        map?.remove();
-      };
-    }
-  });
+	const toggleRouteLayer = () => {
+		if (!map?.getLayer('route-layer')) return;
+		routeVisible = !routeVisible;
+		map.setLayoutProperty('route-layer', 'visibility', routeVisible ? 'visible' : 'none');
+	};
 
-  const fetchSnappedRoute = async () => {
-  const res = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
-    method: 'POST',
-    headers: {
-      'Authorization': '5b3ce3597851110001cf62485c0d23547a23458d9833ec420c38f0fa',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      coordinates: [
-        [-1.0732275,50.8093439],
-        [-1.0620259,50.7924269],
-        [-1.0930822,50.7802554]
-      ]
-    })
-  });
+	const fetchSnappedRoute = async () => {
+		if (!map) return;
 
-  const data = await res.json();
+		const res = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
+			method: 'POST',
+			headers: {
+				'Authorization': '5b3ce3597851110001cf62485c0d23547a23458d9833ec420c38f0fa',
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				coordinates: [
+					[-1.0732275,50.8093439],
+					[-1.0620259,50.7924269],
+					[-1.0930822,50.7802554]
+				]
+			})
+		});
 
-  const geojson: GeoJSON.FeatureCollection = {
-    type: 'FeatureCollection',
-    features: [{
-      type: 'Feature',
-      properties: { name: 'Snapped walking route with waypoint' },
-      geometry: data.features[0].geometry
-    }]
-  };
+		const data = await res.json();
 
-  if (map?.getSource('route')) {
-    (map.getSource('route') as GeoJSONSource).setData(geojson);
-  } else {
-    map.addSource('route', {
-      type: 'geojson',
-      data: geojson
-    });
+		const geojson: GeoJSON.FeatureCollection = {
+			type: 'FeatureCollection',
+			features: [{
+				type: 'Feature',
+				properties: { name: 'Snapped walking route with waypoint' },
+				geometry: data.features[0].geometry
+			}]
+		};
 
-    map.addLayer({
-      id: 'route-layer',
-      type: 'line',
-      source: 'route',
-      paint: {
-        'line-color': '#3498db',
-        'line-width': 4,
-        'line-dasharray': [2, 2]
-      },
-      layout: {
-        visibility: routeVisible ? 'visible' : 'none'
-      }
-    });
-  }
-};
+		if (map.getSource('route')) {
+			(map.getSource('route') as GeoJSONSource).setData(geojson);
+		} else {
+			map.addSource('route', {
+				type: 'geojson',
+				data: geojson
+			});
+
+			map.addLayer({
+				id: 'route-layer',
+				type: 'line',
+				source: 'route',
+				paint: {
+					'line-color': '#3498db',
+					'line-width': 4,
+					'line-dasharray': [2, 2]
+				},
+				layout: {
+					visibility: routeVisible ? 'visible' : 'none'
+				}
+			});
+		}
+	};
+
+	$effect(() => {
+		if (mapContainer && !map) {
+			map = new maplibregl.Map({
+				container: mapContainer,
+				style: mapStyle,
+				center: initialCenter,
+				zoom: initialZoom
+			});
+
+			map.addControl(new maplibregl.NavigationControl(), 'top-right');
+			map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
+
+			map.on('load', async () => {
+				const res = await fetch('/data/portsmouth-traffic.geojson');
+				const rawData: GeoJSON.FeatureCollection = await res.json();
+				const styledGeoJSON = styleTrafficGeoJSON(rawData);
+
+				// Load boat icon
+				if (!map) return;
+				const img = new Image();
+				img.onload = () => {
+					if (map && !map.hasImage('boat-icon')) {
+						map.addImage('boat-icon', img);
+						// Add layers after ensuring the icon is loaded
+						addDataLayer(styledGeoJSON);
+						addAirQualityLayer();
+						addBoatLayer();
+						fetchSnappedRoute();
+					}
+				};
+				img.src = boatIcon;
+
+				map?.addControl(
+					new ToggleButtonControl('🚦', 'Toggle traffic layer', toggleTrafficLayer),
+					'top-right'
+				);
+				map?.addControl(
+					new ToggleButtonControl('🟢', 'Toggle air quality layer', toggleAirQualityLayer),
+					'top-right'
+				);
+				map?.addControl(
+					new ToggleButtonControl('🚢', 'Toggle boat layer', toggleBoatLayer),
+					'top-right'
+				);
+				map?.addControl(
+					new ToggleButtonControl('🚶', 'Toggle route layer', toggleRouteLayer),
+					'top-right'
+				);
+			});
+
+			return () => {
+				map?.remove();
+			};
+		}
+	});
 </script>
 
-<div 
-  bind:this={mapContainer} 
-  style="width: {width}; height: {height};"
-  class="map-container"
-/>
+<div bind:this={mapContainer} style="width: {width}; height: {height};" class="map-container" />
 
 <style>
-  .map-container {
-    position: relative;
-    border-radius: 4px;
-    overflow: hidden;
-  }
+	.map-container {
+		position: relative;
+		border-radius: 4px;
+		overflow: hidden;
+	}
 
-  /* Ensure the map container has a background while loading */
-  .map-container::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: #f0f0f0;
-    z-index: -1;
-  }
+	/* Ensure the map container has a background while loading */
+	.map-container::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: #f0f0f0;
+		z-index: -1;
+	}
 
-  .maplibregl-ctrl-icon {
-    font-size: 16px;
-    padding: 2px;
-  }
+	.maplibregl-ctrl-icon {
+		font-size: 16px;
+		padding: 2px;
+	}
 </style>
