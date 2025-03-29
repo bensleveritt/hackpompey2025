@@ -50,7 +50,7 @@
       features: geojson.features
         .filter(f => f.geometry?.type === 'LineString' && f.properties?.segmentProbeCounts?.[0]?.probeCount >= 0)
         .map(f => {
-          const count = f.properties.segmentProbeCounts[0].probeCount;
+          const count = f.properties?.segmentProbeCounts[0].probeCount;
           return {
             ...f,
             properties: {
@@ -120,6 +120,8 @@
       // Add scale control
       map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
 
+      map.addControl( new ToggleTrafficControl(), 'top-right' );
+
       map.on('load', async () => {
         const res = await fetch('/data/portsmouth-traffic.geojson');
         const rawData: GeoJSON.FeatureCollection = await res.json();
@@ -133,6 +135,36 @@
       };
     }
   });
+
+  class ToggleTrafficControl {
+  private _map!: MapInstance;
+  private _btn!: HTMLButtonElement;
+
+  onAdd( map: MapInstance ): HTMLElement {
+    this._map = map;
+
+    this._btn = document.createElement('button');
+    this._btn.className = 'maplibregl-ctrl-icon';
+    this._btn.type = 'button';
+    this._btn.textContent = '🚦';
+    this._btn.title = 'Toggle traffic layer';
+
+    this._btn.onclick = () => {
+      toggleTrafficLayer();
+    };
+
+    const container = document.createElement('div');
+    container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+    container.appendChild( this._btn );
+    return container;
+  }
+
+  onRemove(): void {
+    this._btn?.parentNode?.removeChild(this._btn);
+    (this._map as any) = undefined;
+  }
+}
+
 </script>
 
 <div 
@@ -140,10 +172,6 @@
   style="width: {width}; height: {height};"
   class="map-container"
 />
-
-<button on:click={toggleTrafficLayer} class="toggle-btn">
-  {trafficVisible ? 'Hide Traffic Layer' : 'Show Traffic Layer'}
-</button>
 
 <style>
   .map-container {
