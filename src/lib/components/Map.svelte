@@ -32,6 +32,9 @@
   let airQualityVisible = true;
   let routeVisible = true;
 	let boatVisible = true;
+	let heatmapVisible = true;
+	let topoVisible = true;
+	let riskZonesVisible = true;
 
 	// Methods for data visualization
 	const getColorForCount = (count: number): string => {
@@ -375,6 +378,194 @@
 		}
 	};
 
+	const mockRiskZones: GeoJSON.FeatureCollection = {
+		type: 'FeatureCollection',
+		features: [
+			// M275 Corridor - Major pollution zone
+			{
+				type: 'Feature',
+				properties: { 
+					risk: 'severe',
+					description: 'M275 Corridor - Heavy traffic pollution'
+				},
+				geometry: {
+					type: 'Polygon',
+					coordinates: [[
+						[-1.0949, 50.8334],  // Outer ring
+						[-1.0899, 50.8334],
+						[-1.0849, 50.8284],
+						[-1.0849, 50.8134],
+						[-1.0899, 50.8084],
+						[-1.0949, 50.8084],
+						[-1.0999, 50.8134],
+						[-1.0999, 50.8284],
+						[-1.0949, 50.8334]
+					]]
+				}
+			},
+			// Commercial Road Area
+			{
+				type: 'Feature',
+				properties: { 
+					risk: 'high',
+					description: 'Commercial Road - High urban pollution'
+				},
+				geometry: {
+					type: 'Polygon',
+					coordinates: [[
+						[-1.0920, 50.8050],
+						[-1.0820, 50.8050],
+						[-1.0820, 50.7950],
+						[-1.0920, 50.7950],
+						[-1.0920, 50.8050]
+					]]
+				}
+			},
+			// Portsmouth Harbor Industrial Zone
+			{
+				type: 'Feature',
+				properties: { 
+					risk: 'moderate',
+					description: 'Harbor Industrial Area'
+				},
+				geometry: {
+					type: 'Polygon',
+					coordinates: [[
+						[-1.1020, 50.8150],
+						[-1.0920, 50.8150],
+						[-1.0920, 50.8050],
+						[-1.1020, 50.8050],
+						[-1.1020, 50.8150]
+					]]
+				}
+			},
+			// Fratton Area
+			{
+				type: 'Feature',
+				properties: { 
+					risk: 'moderate',
+					description: 'Fratton - Urban pollution zone'
+				},
+				geometry: {
+					type: 'Polygon',
+					coordinates: [[
+						[-1.0773, 50.7995],
+						[-1.0673, 50.7995],
+						[-1.0673, 50.7895],
+						[-1.0773, 50.7895],
+						[-1.0773, 50.7995]
+					]]
+				}
+			},
+			// Cosham High Street
+			{
+				type: 'Feature',
+				properties: { 
+					risk: 'high',
+					description: 'Cosham - Traffic congestion zone'
+				},
+				geometry: {
+					type: 'Polygon',
+					coordinates: [[
+						[-1.0720, 50.8460],
+						[-1.0620, 50.8460],
+						[-1.0620, 50.8360],
+						[-1.0720, 50.8360],
+						[-1.0720, 50.8460]
+					]]
+				}
+			}
+		]
+	};
+
+	const addRiskZonesLayer = () => {
+		if (!map) return;
+
+		if (map.getSource('risk-zones')) {
+			map.removeLayer('risk-zones-fill');
+			map.removeLayer('risk-zones-outline');
+			map.removeLayer('risk-zones-label');
+			map.removeSource('risk-zones');
+		}
+
+		map.addSource('risk-zones', {
+			type: 'geojson',
+			data: mockRiskZones
+		});
+
+		// Add fill layer
+		map.addLayer({
+			id: 'risk-zones-fill',
+			type: 'fill',
+			source: 'risk-zones',
+			paint: {
+				'fill-color': [
+					'match',
+					['get', 'risk'],
+					'severe', 'rgba(178,24,43,0.5)',
+					'high', 'rgba(239,138,98,0.5)',
+					'moderate', 'rgba(253,219,199,0.5)',
+					'rgba(247,247,247,0.5)'
+				],
+				'fill-opacity': 0.6
+			},
+			layout: {
+				visibility: riskZonesVisible ? 'visible' : 'none'
+			}
+		});
+
+		// Add outline layer
+		map.addLayer({
+			id: 'risk-zones-outline',
+			type: 'line',
+			source: 'risk-zones',
+			paint: {
+				'line-color': [
+					'match',
+					['get', 'risk'],
+					'severe', '#b2182b',
+					'high', '#ef8a62',
+					'moderate', '#fddbc7',
+					'#f7f7f7'
+				],
+				'line-width': 2,
+				'line-dasharray': [2, 2]
+			},
+			layout: {
+				visibility: riskZonesVisible ? 'visible' : 'none'
+			}
+		});
+
+		// Add labels
+		map.addLayer({
+			id: 'risk-zones-label',
+			type: 'symbol',
+			source: 'risk-zones',
+			layout: {
+				'text-field': ['get', 'description'],
+				'text-size': 12,
+				'text-anchor': 'center',
+				'text-justify': 'center',
+				'text-offset': [0, 0],
+				visibility: riskZonesVisible ? 'visible' : 'none'
+			},
+			paint: {
+				'text-color': '#000000',
+				'text-halo-color': '#ffffff',
+				'text-halo-width': 1
+			}
+		});
+	};
+
+	const toggleRiskZonesLayer = () => {
+		if (!map?.getLayer('risk-zones-fill')) return;
+		riskZonesVisible = !riskZonesVisible;
+		const visibility = riskZonesVisible ? 'visible' : 'none';
+		['risk-zones-fill', 'risk-zones-outline', 'risk-zones-label'].forEach(layerId => {
+			map.setLayoutProperty(layerId, 'visibility', visibility);
+		});
+	};
+
 	$effect(() => {
 		if (mapContainer && !map) {
 			map = new maplibregl.Map({
@@ -402,6 +593,7 @@
 						addDataLayer(styledGeoJSON);
 						addAirQualityLayer();
 						addBoatLayer();
+						addRiskZonesLayer();
 						fetchSnappedRoute();
 					}
 				};
@@ -421,6 +613,10 @@
 				);
 				map?.addControl(
 					new ToggleButtonControl('🚶', 'Toggle route layer', toggleRouteLayer),
+					'top-right'
+				);
+				map?.addControl(
+					new ToggleButtonControl('⚠️', 'Toggle risk zones', toggleRiskZonesLayer),
 					'top-right'
 				);
 			});
