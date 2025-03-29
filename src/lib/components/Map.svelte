@@ -21,14 +21,49 @@
   const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY;
   
   // Map style based on theme
-  const mapStyle = 'https://api.maptiler.com/maps/streets-v2/style.json?key=faQwRnzRLoIsPK7HN5b4';
+  const mapStyle = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`;
 
   // State
   let mapContainer: HTMLDivElement;
   let map = $state<MapInstance | null>(null);
   let dataSource = $state<GeoJSONSource | null>(null);
+  let trafficVisible = true; // New: track visibility
 
   // Methods for data visualization
+  const getColorForCount = (count: number): string => {
+    if (count > 100000) return '#d73027';
+    if (count > 1000) return '#fc8d59';
+    if (count > 0) return '#fee08b';
+    return '#d9d9d9';
+  };
+
+  const getWidthForCount = (count: number): number => {
+    if (count > 100000) return 6;
+    if (count > 1000) return 4;
+    if (count > 0) return 2;
+    return 1;
+  };
+
+  const styleTrafficGeoJSON = (geojson: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection => {
+    return {
+      ...geojson,
+      features: geojson.features
+        .filter(f => f.geometry?.type === 'LineString' && f.properties?.segmentProbeCounts?.[0]?.probeCount >= 0)
+        .map(f => {
+          const count = f.properties.segmentProbeCounts[0].probeCount;
+          return {
+            ...f,
+            properties: {
+              ...f.properties,
+              probeCount: count,
+              color: getColorForCount(count),
+              width: getWidthForCount(count)
+            }
+          };
+        })
+    };
+  };
+
   const addDataLayer = (geojsonData: GeoJSON.FeatureCollection) => {
     if (!map) return;
 
@@ -50,21 +85,24 @@
     // Add a layer to visualize the data
     map.addLayer({
       id: 'visualization-layer',
-      type: 'circle',
+      type: 'line',
       source: 'visualization-data',
       paint: {
-        'circle-radius': 6,
-        'circle-color': '#007cbf',
-        'circle-opacity': 0.7
+        'line-color': ['get', 'color'],
+        'line-width': ['get', 'width'],
+        'line-opacity': 0.8
+      },
+      layout: {
+        visibility: trafficVisible ? 'visible' : 'none'
       }
     });
   };
 
-  // Method to update existing data
-  const updateData = (geojsonData: GeoJSON.FeatureCollection) => {
-    if (dataSource) {
-      dataSource.setData(geojsonData);
-    }
+  // Toggle method for traffic layer
+  const toggleTrafficLayer = () => {
+    if (!map?.getLayer('visualization-layer')) return;
+    trafficVisible = !trafficVisible;
+    map.setLayoutProperty('visualization-layer', 'visibility', trafficVisible ? 'visible' : 'none');
   };
 
   $effect(() => {
@@ -82,6 +120,13 @@
       // Add scale control
       map.addControl(new maplibregl.ScaleControl(), 'bottom-left');
 
+      map.on('load', async () => {
+        const res = await fetch('/data/portsmouth-traffic.geojson');
+        const rawData: GeoJSON.FeatureCollection = await res.json();
+        const styledGeoJSON = styleTrafficGeoJSON(rawData);
+        addDataLayer(styledGeoJSON);
+      });
+
       // Clean up on destroy
       return () => {
         map?.remove();
@@ -95,6 +140,10 @@
   style="width: {width}; height: {height};"
   class="map-container"
 />
+
+<button on:click={toggleTrafficLayer} class="toggle-btn">
+  {trafficVisible ? 'Hide Traffic Layer' : 'Show Traffic Layer'}
+</button>
 
 <style>
   .map-container {
@@ -114,4 +163,19 @@
     background: #f0f0f0;
     z-index: -1;
   }
-</style> 
+
+  .toggle-btn {
+    margin-top: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+    border-radius: 4px;
+    background: #007cbf;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+
+  .toggle-btn:hover {
+    background: #005e9c;
+  }
+</style>
