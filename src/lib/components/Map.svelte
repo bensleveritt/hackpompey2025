@@ -28,13 +28,22 @@
   let mapContainer: HTMLDivElement;
   let map = $state<MapInstance | null>(null);
   let dataSource = $state<GeoJSONSource | null>(null);
-  let trafficVisible = true;
-  let airQualityVisible = true;
-  let routeVisible = true;
-	let boatVisible = true;
-	let heatmapVisible = true;
-	let topoVisible = true;
-	let riskZonesVisible = true;
+  let trafficVisible = $state(true);
+  let airQualityVisible = $state(true);
+  let routeVisible = $state(true);
+	let boatVisible = $state(true);
+	let heatmapVisible = $state(true);
+	let topoVisible = $state(true);
+	let riskZonesVisible = $state(true);
+	let isFlying = $state(false);
+	let routeCoordinates = $state<[number, number][]>([]);
+
+	// Route waypoints
+	const routeWaypoints = [
+		[-1.0732275, 50.8093439],
+		[-1.0620259, 50.7924269],
+		[-1.0930822, 50.7802554]
+	] as [number, number][];
 
 	// Methods for data visualization
 	const getColorForCount = (count: number): string => {
@@ -344,6 +353,11 @@
 		});
 
 		const data = await res.json();
+		
+		// Store route coordinates for the fly-through
+		if (data.features[0].geometry.type === 'LineString') {
+			routeCoordinates = data.features[0].geometry.coordinates as [number, number][];
+		}
 
 		const geojson: GeoJSON.FeatureCollection = {
 			type: 'FeatureCollection',
@@ -561,10 +575,164 @@
 		if (!map?.getLayer('risk-zones-fill')) return;
 		riskZonesVisible = !riskZonesVisible;
 		const visibility = riskZonesVisible ? 'visible' : 'none';
-		['risk-zones-fill', 'risk-zones-outline', 'risk-zones-label'].forEach(layerId => {
-			map.setLayoutProperty(layerId, 'visibility', visibility);
-		});
+		const layerIds = ['risk-zones-fill', 'risk-zones-outline', 'risk-zones-label'];
+		for (const layerId of layerIds) {
+			if (map) {
+				map.setLayoutProperty(layerId, 'visibility', visibility);
+			}
+		}
 	};
+
+	const startFlythrough = () => {
+		if (!map || isFlying || routeCoordinates.length === 0) return;
+		
+		isFlying = true;
+		let currentIndex = 0;
+		const totalPoints = routeCoordinates.length;
+		const pointsPerBatch = Math.max(1, Math.floor(totalPoints / 30)); // Divide route into ~30 segments
+		
+		const flyToNext = () => {
+			if (!map || currentIndex >= totalPoints) {
+				isFlying = false;
+				return;
+			}
+
+			const point = routeCoordinates[currentIndex];
+			
+			// Calculate bearing to next point for camera orientation
+			let bearing = 0;
+			if (currentIndex < totalPoints - 1) {
+				const nextPoint = routeCoordinates[currentIndex + 1];
+				bearing = getBearing(point, nextPoint);
+			}
+
+			// Calculate appropriate zoom based on segment location
+			const zoomLevel = getAppropriateZoom(point);
+
+			map.flyTo({
+				center: point,
+				zoom: zoomLevel,
+				bearing: bearing,
+				speed: 0.25,
+				curve: 1,
+				essential: true
+			});
+
+			currentIndex += pointsPerBatch;
+			setTimeout(flyToNext, 1000); // Adjust timing for smooth movement
+		};
+
+		flyToNext();
+	};
+
+	// Helper function to calculate bearing between two points
+	const getBearing = (start: [number, number], end: [number, number]): number => {
+		const startLat = toRad(start[1]);
+		const startLng = toRad(start[0]);
+		const endLat = toRad(end[1]);
+		const endLng = toRad(end[0]);
+
+		const dLng = endLng - startLng;
+
+		const y = Math.sin(dLng) * Math.cos(endLat);
+		const x = Math.cos(startLat) * Math.sin(endLat) -
+				Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng);
+
+		let bearing = toDeg(Math.atan2(y, x));
+		bearing = (bearing + 360) % 360;
+
+		return bearing;
+	};
+
+	const toRad = (deg: number): number => (deg * Math.PI) / 180;
+	const toDeg = (rad: number): number => (rad * 180) / Math.PI;
+
+	// Helper function to determine appropriate zoom level based on location
+	const getAppropriateZoom = (point: [number, number]): number => {
+		// Check if point is in a high-detail area (like city center)
+		const isInDetailArea = mockRiskZones.features.some(zone => {
+			if (zone.geometry.type === 'Polygon') {
+				return isPointInPolygon(point, zone.geometry.coordinates[0]);
+			}
+			return false;
+		});
+
+		return isInDetailArea ? 16 : 15;
+	};
+
+	// Helper function to check if a point is inside a polygon
+	const isPointInPolygon = (point: [number, number], polygon: [number, number][]): boolean => {
+		let inside = false;
+		for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+			const xi = polygon[i][0], yi = polygon[i][1];
+			const xj = polygon[j][0], yj = polygon[j][1];
+
+			const intersect = ((yi > point[1]) !== (yj > point[1])) &&
+				(point[0] < (xj - xi) * (point[1] - yi) / (yj - yi) + xi);
+			if (intersect) inside = !inside;
+		}
+		return inside;
+	};
+
+	// Custom control for fly-through
+	class FlyThroughControl {
+		private _map!: MapInstance;
+		private _btn!: HTMLButtonElement;
+		private _container!: HTMLDivElement;
+		private _unsubscribe: (() => void) | undefined;
+
+		onAdd(map: MapInstance): HTMLElement {
+			this._map = map;
+			this._container = document.createElement('div');
+			this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+			
+			this._btn = document.createElement('button');
+			this._btn.className = 'maplibregl-ctrl-icon';
+			this._btn.type = 'button';
+			this._btn.innerHTML = '✈️';
+			this._btn.title = 'Start fly-through';
+			
+			// Add loading state indicator
+			const loadingSpinner = document.createElement('div');
+			loadingSpinner.className = 'fly-through-loading';
+			loadingSpinner.style.display = 'none';
+			
+			this._btn.onclick = () => {
+				if (!isFlying) {
+					startFlythrough();
+					this._btn.style.backgroundColor = '#e0e0e0';
+				}
+			};
+			
+			// Update button state based on flying status
+			this.updateButtonState();
+			
+			this._container.appendChild(this._btn);
+			this._container.appendChild(loadingSpinner);
+			
+			return this._container;
+		}
+
+		private updateButtonState() {
+			// Create a reactive effect outside the class method
+			$effect.root(() => {
+				if (isFlying) {
+					this._btn.style.backgroundColor = '#e0e0e0';
+					this._btn.title = 'Flying...';
+				} else {
+					this._btn.style.backgroundColor = '';
+					this._btn.title = 'Start fly-through';
+				}
+			});
+		}
+
+		onRemove(): void {
+			if (this._unsubscribe) {
+				this._unsubscribe();
+			}
+			this._container.parentNode?.removeChild(this._container);
+		}
+	}
 
 	$effect(() => {
 		if (mapContainer && !map) {
@@ -619,6 +787,10 @@
 					new ToggleButtonControl('⚠️', 'Toggle risk zones', toggleRiskZonesLayer),
 					'top-right'
 				);
+				map?.addControl(
+					new FlyThroughControl(),
+					'top-right'
+				);
 			});
 
 			return () => {
@@ -652,5 +824,25 @@
 	.maplibregl-ctrl-icon {
 		font-size: 16px;
 		padding: 2px;
+	}
+
+	/* Fly-through control styles */
+	.fly-through-loading {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: 16px;
+		height: 16px;
+		border: 2px solid #f3f3f3;
+		border-top: 2px solid #3498db;
+		border-radius: 50%;
+		animation: spin 1s linear infinite;
+		display: none;
+	}
+
+	@keyframes spin {
+		0% { transform: translate(-50%, -50%) rotate(0deg); }
+		100% { transform: translate(-50%, -50%) rotate(360deg); }
 	}
 </style>
