@@ -29,6 +29,7 @@
   let dataSource = $state<GeoJSONSource | null>(null);
   let trafficVisible = true;
   let airQualityVisible = true;
+  let routeVisible = true;
 
   // Methods for data visualization
   const getColorForCount = (count: number): string => {
@@ -258,6 +259,8 @@
 
         map?.addControl(new ToggleButtonControl('🚦', 'Toggle traffic layer', toggleTrafficLayer), 'top-right');
         map?.addControl(new ToggleButtonControl('🟢', 'Toggle air quality layer', toggleAirQualityLayer), 'top-right');
+
+        fetchSnappedRoute();
       });
 
       return () => {
@@ -265,6 +268,57 @@
       };
     }
   });
+
+  const fetchSnappedRoute = async () => {
+  const res = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
+    method: 'POST',
+    headers: {
+      'Authorization': '5b3ce3597851110001cf62485c0d23547a23458d9833ec420c38f0fa',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      coordinates: [
+        [-1.0732275,50.8093439],
+        [-1.0620259,50.7924269],
+        [-1.0930822,50.7802554]
+      ]
+    })
+  });
+
+  const data = await res.json();
+
+  const geojson: GeoJSON.FeatureCollection = {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: { name: 'Snapped walking route with waypoint' },
+      geometry: data.features[0].geometry
+    }]
+  };
+
+  if (map?.getSource('route')) {
+    (map.getSource('route') as GeoJSONSource).setData(geojson);
+  } else {
+    map.addSource('route', {
+      type: 'geojson',
+      data: geojson
+    });
+
+    map.addLayer({
+      id: 'route-layer',
+      type: 'line',
+      source: 'route',
+      paint: {
+        'line-color': '#3498db',
+        'line-width': 4,
+        'line-dasharray': [2, 2]
+      },
+      layout: {
+        visibility: routeVisible ? 'visible' : 'none'
+      }
+    });
+  }
+};
 </script>
 
 <div 
