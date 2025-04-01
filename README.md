@@ -1,38 +1,103 @@
-# sv
+# Maritime Meridian
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+A navigation tool that transforms pollution and environmental data into actionable insights for Portsmouth residents.
 
-## Creating a project
+## Project Overview
 
-If you're seeing this, you've probably already done this step. Congrats!
+Maritime Meridian aims to empower Portsmouth residents by providing real-time environmental and transportation data in an accessible format. By integrating multiple data sources, our application helps users make informed decisions about:
+
+- Optimal cycling times based on air quality and traffic conditions
+- Navigating around high-pollution or congested areas
+- Identifying opportunities to view ships entering the harbour
+
+This project was developed during the Hack Pompey 2025 hackathon by [@bensleveritt](https://github.com/bensleveritt), [@4rknova](https://github.com/4rknova), and [@dominic-ks](https://github.com/dominic-ks).
+
+## Features
+
+- Interactive map showing multiple data layers:
+  - Real-time air quality measurements
+  - Traffic density information
+  - Ship movements in the harbour
+  - Environmental risk areas
+- Route planning that considers environmental factors
+- Mobile-friendly interface
+
+## Technology Stack
+
+- **Frontend**: Built with Svelte for its efficiency and smaller environmental footprint
+- **Map Rendering**: MapLibre GL JS
+- **Data Sources**: OpenStreetMap data (open and free data sources)
+- **Styling**: MapTiler for custom map styling
+
+## Development Status
+
+Maritime Meridian is currently a functioning prototype that demonstrates the potential for integrating various environmental and transportation data sources. The project successfully visualizes different data layers on an interactive map, providing a foundation for future development.
+
+## Challenges & Learnings
+
+A significant challenge was gaining access to reliable, real-time data sources. We worked to integrate:
+- Vehicle traffic patterns
+- Maritime vessel movements
+- Air quality measurements
+- Environmental risk assessments
+
+This project highlights the need for better data integration and accessibility for civic technology applications.
+
+## Development Guide
+
+### Prerequisites
+
+- Node.js (v16 or higher)
+- PNPM package manager
+
+### Getting Started
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/bensleveritt/maritime-meridian.git
+   cd maritime-meridian
+   ```
+
+2. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+
+3. Create a `.env` file in the project root based on the provided `.env.example` file:
+   ```
+   # Copy the example file
+   cp .env.example .env
+   
+   # Edit the file and add your MapTiler API key
+   # Get your free key at https://cloud.maptiler.com/account/
+   VITE_MAPTILER_KEY=your_maptiler_key_here
+   ```
+
+4. Start the development server:
+   ```bash
+   pnpm dev
+   ```
+
+5. Open your browser at `http://localhost:5173`
+
+### Building for Production
+
+To create a production version of the app:
 
 ```bash
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
+pnpm build
 ```
 
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+You can preview the production build with:
 
 ```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+pnpm preview
 ```
 
-## Building
+## Contributing
 
-To create a production version of your app:
+We welcome contributions to Maritime Meridian! Whether it's adding new data sources, improving the UI, or fixing bugs, please feel free to submit pull requests.
 
-```bash
-npm run build
-```
+## License
 
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+This project is licensed under the MIT License - see the LICENSE file for details.
