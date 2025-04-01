@@ -63,9 +63,14 @@ This project highlights the need for better data integration and accessibility f
    pnpm install
    ```
 
-3. Create a `.env` file in the project root and add your MapTiler API key:
+3. Create a `.env` file in the project root based on the provided `.env.example` file:
    ```
-   VITE_MAPTILER_API_KEY=your_api_key_here
+   # Copy the example file
+   cp .env.example .env
+   
+   # Edit the file and add your MapTiler API key
+   # Get your free key at https://cloud.maptiler.com/account/
+   VITE_MAPTILER_KEY=your_maptiler_key_here
    ```
 
 4. Start the development server:
