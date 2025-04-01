@@ -2,6 +2,8 @@
 
 A navigation tool that transforms pollution and environmental data into actionable insights for Portsmouth residents. This project was created during [Hack Pompey 2025](https://hackpompey.co.uk/).
 
+![Screenshot of Maritime Meridian](./screenshot.png)
+
 ## Project Overview
 
 Maritime Meridian aims to empower Portsmouth residents by providing real-time environmental and transportation data in an accessible format. By integrating multiple data sources, our application helps users make informed decisions about:
@@ -33,11 +35,10 @@ This project was developed during the Hack Pompey 2025 hackathon by [@bensleveri
 
 Maritime Meridian is currently a functioning prototype that demonstrates the potential for integrating various environmental and transportation data sources. The project successfully visualizes different data layers on an interactive map, providing a foundation for future development.
 
-![Screenshot of Maritime Meridian](./screenshot.png)
-
 ## Challenges & Learnings
 
 A significant challenge was gaining access to reliable, real-time data sources. We worked to integrate:
+
 - Vehicle traffic patterns
 - Maritime vessel movements
 - Air quality measurements
@@ -55,27 +56,31 @@ This project highlights the need for better data integration and accessibility f
 ### Getting Started
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/bensleveritt/maritime-meridian.git
    cd maritime-meridian
    ```
 
 2. Install dependencies:
+
    ```bash
    pnpm install
    ```
 
 3. Create a `.env` file in the project root based on the provided `.env.example` file:
+
    ```
    # Copy the example file
    cp .env.example .env
-   
+
    # Edit the file and add your MapTiler API key
    # Get your free key at https://cloud.maptiler.com/account/
    VITE_MAPTILER_KEY=your_maptiler_key_here
    ```
 
 4. Start the development server:
+
    ```bash
    pnpm dev
    ```
