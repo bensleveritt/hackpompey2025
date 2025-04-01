@@ -26,10 +26,10 @@ This project was developed during the Hack Pompey 2025 hackathon by [@bensleveri
 
 ## Technology Stack
 
-- **Frontend**: Built with Svelte for its efficiency and smaller environmental footprint
-- **Map Rendering**: MapLibre GL JS
-- **Data Sources**: OpenStreetMap data (open and free data sources)
-- **Styling**: MapTiler for custom map styling
+- **Frontend**: Built with [Svelte](https://svelte.dev/) for its efficiency and smaller environmental footprint
+- **Map Rendering**: [MapLibre GL JS](https://maplibre.org/) - an open-source map rendering library
+- **Data Sources**: [OpenStreetMap](https://www.openstreetmap.org/) data (open and free data sources)
+- **Styling**: [MapTiler](https://www.maptiler.com/) for custom map styling
 
 ## Development Status
 
@@ -50,8 +50,8 @@ This project highlights the need for better data integration and accessibility f
 
 ### Prerequisites
 
-- Node.js (v16 or higher)
-- PNPM package manager
+- [Node.js](https://nodejs.org/) (v16 or higher)
+- [PNPM](https://pnpm.io/) package manager
 
 ### Getting Started
 
