@@ -1,6 +1,6 @@
 # Maritime Meridian
 
-A navigation tool that transforms pollution and environmental data into actionable insights for Portsmouth residents.
+A navigation tool that transforms pollution and environmental data into actionable insights for Portsmouth residents. This project was created during [Hack Pompey 2025](https://hackpompey.co.uk/).
 
 ## Project Overview
 
@@ -32,6 +32,8 @@ This project was developed during the Hack Pompey 2025 hackathon by [@bensleveri
 ## Development Status
 
 Maritime Meridian is currently a functioning prototype that demonstrates the potential for integrating various environmental and transportation data sources. The project successfully visualizes different data layers on an interactive map, providing a foundation for future development.
+
+![Screenshot of Maritime Meridian](./screenshot.png)
 
 ## Challenges & Learnings
 
