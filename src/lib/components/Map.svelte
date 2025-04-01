@@ -427,12 +427,86 @@
 				geometry: {
 					type: 'Polygon',
 					coordinates: [[
-						[-1.0920, 50.8050],
-						[-1.0820, 50.8050],
-						[-1.0820, 50.7950],
-						[-1.0920, 50.7950],
-						[-1.0920, 50.8050]
-					]]
+
+            [
+              -1.0878028056432356,
+              50.803847747165634
+            ],
+            [
+              -1.0896554666073826,
+              50.80370139198641
+            ],
+            [
+              -1.0922028754352198,
+              50.80336686414131
+            ],
+            [
+              -1.0938239537798324,
+              50.80248871715227
+            ],
+            [
+              -1.0965036955317373,
+              50.80048146205965
+            ],
+            [
+              -1.0969668607733638,
+              50.798202286641214
+            ],
+            [
+              -1.0976946918669057,
+              50.79546294708334
+            ],
+            [
+              -1.097396942782808,
+              50.79385272600439
+            ],
+            [
+              -1.0942209525569524,
+              50.79337174011661
+            ],
+            [
+              -1.0890599684404378,
+              50.794480091462674
+            ],
+            [
+              -1.0882990541159074,
+              50.795860265829646
+            ],
+            [
+              -1.0904163809331067,
+              50.795776620058234
+            ],
+            [
+              -1.0940555363993667,
+              50.79690582533706
+            ],
+            [
+              -1.0940224531683498,
+              50.7994987119792
+            ],
+            [
+              -1.09127654495191,
+              50.80144328255133
+            ],
+            [
+              -1.0876043062534109,
+              50.801380555731214
+            ],
+            [
+              -1.0852553968153416,
+              50.802655984518054
+            ],
+            [
+              -1.0859170614456275,
+              50.803408680253085
+            ],
+            [
+              -1.0878028056432356,
+              50.803847747165634
+            ]
+          ]
+        ],
+					
 				}
 			},
 			// Portsmouth Harbor Industrial Zone
@@ -588,11 +662,21 @@
 		
 		isFlying = true;
 		let currentIndex = 0;
+		let currentBearing = 0;
+		let currentPitch = 0;
 		const totalPoints = routeCoordinates.length;
 		const pointsPerBatch = Math.max(1, Math.floor(totalPoints / 30)); // Divide route into ~30 segments
+		const targetPitch = 45; // Target angle for bird's eye view
 		
 		const flyToNext = () => {
 			if (!map || currentIndex >= totalPoints) {
+				// Smoothly return to normal view at the end
+				map?.flyTo({
+					pitch: 0,
+					bearing: 0,
+					speed: 0.2,
+					essential: true
+				});
 				isFlying = false;
 				return;
 			}
@@ -600,10 +684,23 @@
 			const point = routeCoordinates[currentIndex];
 			
 			// Calculate bearing to next point for camera orientation
-			let bearing = 0;
+			let targetBearing = 0;
 			if (currentIndex < totalPoints - 1) {
 				const nextPoint = routeCoordinates[currentIndex + 1];
-				bearing = getBearing(point, nextPoint);
+				targetBearing = getBearing(point, nextPoint);
+				
+				// Smooth out bearing changes
+				const bearingDiff = ((targetBearing - currentBearing + 540) % 360) - 180;
+				currentBearing = currentBearing + bearingDiff * 0.2; // Reduce rotation speed to 20%
+			}
+
+			// Smoothly transition to bird's eye view at the start
+			if (currentIndex === 0) {
+				currentPitch = 0;
+			} else if (currentIndex < totalPoints * 0.1) { // First 10% of the route
+				currentPitch = Math.min(targetPitch, currentPitch + 3); // Gradually increase pitch
+			} else if (currentIndex > totalPoints * 0.9) { // Last 10% of the route
+				currentPitch = Math.max(0, currentPitch - 3); // Gradually decrease pitch
 			}
 
 			// Calculate appropriate zoom based on segment location
@@ -612,14 +709,15 @@
 			map.flyTo({
 				center: point,
 				zoom: zoomLevel,
-				bearing: bearing,
-				speed: 0.25,
+				bearing: currentBearing,
+				pitch: currentPitch,
+				speed: 0.15, // Even slower movement for better viewing
 				curve: 1,
 				essential: true
 			});
 
 			currentIndex += pointsPerBatch;
-			setTimeout(flyToNext, 1000); // Adjust timing for smooth movement
+			setTimeout(flyToNext, 1200); // Keep same timing
 		};
 
 		flyToNext();
@@ -652,7 +750,9 @@
 		// Check if point is in a high-detail area (like city center)
 		const isInDetailArea = mockRiskZones.features.some(zone => {
 			if (zone.geometry.type === 'Polygon') {
-				return isPointInPolygon(point, zone.geometry.coordinates[0]);
+				// Type assertion to ensure coordinates match expected format
+				const coordinates = zone.geometry.coordinates[0] as [number, number][];
+				return isPointInPolygon(point, coordinates);
 			}
 			return false;
 		});
@@ -664,8 +764,10 @@
 	const isPointInPolygon = (point: [number, number], polygon: [number, number][]): boolean => {
 		let inside = false;
 		for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-			const xi = polygon[i][0], yi = polygon[i][1];
-			const xj = polygon[j][0], yj = polygon[j][1];
+			const xi = polygon[i][0];
+			const yi = polygon[i][1];
+			const xj = polygon[j][0];
+			const yj = polygon[j][1];
 
 			const intersect = ((yi > point[1]) !== (yj > point[1])) &&
 				(point[0] < (xj - xi) * (point[1] - yi) / (yj - yi) + xi);
